@@ -3,7 +3,7 @@ import bcrypt from "bcrypt";
 import jwt from "jsonwebtoken";
 
 const router = express.Router();
-const User = require("../models/user.js");
+import User from "../models/user.js";
 
 router.post("/register", async (req, res) => {
   const { username, password } = req.body;
@@ -17,7 +17,7 @@ router.post("/register", async (req, res) => {
 
   const passwordHash = await bcrypt.hash(password, 10);
 
-  const user = new User.create({ username, passwordHash });
+  const user = await User.create({ username, passwordHash });
 
   res.status(201).json({ message: "User created" });
 });
