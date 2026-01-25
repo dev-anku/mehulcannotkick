@@ -1,0 +1,44 @@
+# =========================
+# Node / Express
+# =========================
+node_modules/
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# Environment variables (VERY IMPORTANT)
+.env
+.env.*
+!.env.example
+
+# =========================
+# React
+# =========================
+build/
+dist/
+
+# =========================
+# MongoDB
+# =========================
+data/
+dump/
+
+# =========================
+# Logs
+# =========================
+logs/
+*.log
+
+# =========================
+# OS / Editor
+# =========================
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+
+# =========================
+# Coverage
+# =========================
+coverage/
+
