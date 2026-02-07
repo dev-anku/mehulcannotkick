@@ -1,5 +1,6 @@
 import { useState } from "react";
 import api from "./api/axios";
+import { connectSocket } from "./api/socket";
 
 export default function App() {
   const [username, setUsername] = useState("");
@@ -7,6 +8,8 @@ export default function App() {
   const [token, setToken] = useState(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
+  const [onlineUsers, setOnlineUsers] = useState([]);
+  const [socket, setSocket] = useState(null);
 
   async function register() {
     setLoading(true);
@@ -28,7 +31,39 @@ export default function App() {
 
     try {
       const res = await api.post("/auth/login", { username, password });
-      setToken(res.data.token);
+      const t = res.data.token;
+      setToken(t);
+
+      const s = connectSocket(t);
+      setSocket(s);
+
+      s.on("connected", (data) => {
+        setOnlineUsers(data.onlineUsers);
+      });
+
+      s.on("online_users", (users) => {
+        setOnlineUsers(users);
+      });
+
+      s.on("receive_challenge", ({ challengeId, fromUser }) => {
+        const accept = window.confirm(
+          `${fromUser} has challenged you! Accept?`
+        );
+
+        if (accept) {
+          s.emit("accept_challenge", { challengeId });
+        } else {
+          s.emit("reject_challenge", { challengeId });
+        }
+      });
+
+      s.on("challenge_accepted", ({ by }) => {
+        alert(`${by} accepted your challenge!`);
+      });
+
+      s.on("challenge_rejected", ({ by }) => {
+        alert(`${by} rejected your challenge.`);
+      });
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
     } finally {
@@ -43,9 +78,30 @@ export default function App() {
           <h1 className="text-xl font-semibold mb-2">
             Logged in as: <span className="text-green-400">{username}</span>
           </h1>
-          <p className="text-sm text-gray-400">
-            Authentication successful. (Token stored in memory for now.)
-          </p>
+          <h3 className="mt-4 text-sm text-gray-400">Online Users:</h3>
+          <ul className="mt-2 text-sm">
+            {onlineUsers.map((u) => (
+              <li key={u} className="text-green-300">
+                • {u}
+              </li>
+            ))}
+          </ul>
+          <div className="mt-6">
+            <input
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+              placeholder="Challenge username..."
+              onKeyDown={(e) => {
+                if (e.key === "Enter") {
+                  socket.emit("send_challenge", { toUser: e.target.value });
+                  e.target.value = "";
+                }
+              }}
+            />
+          </div>
+
+          <div className="mt-4 text-sm text-yellow-400">
+            (Press Enter to send challenge)
+          </div>
         </div>
       </div>
     );
