@@ -1,10 +1,21 @@
-import express from "express";
+require("dotenv").config();
+const express = require("express");
+const cors = require("cors");
+
+const authRoutes = require("./routes/authRoutes.js");
 
 const app = express();
 
+app.use(
+  cors({
+    origin: process.env.CLIENT_URL,
+  }),
+);
 app.use(express.json());
 
-import authRoutes from "./routes/authRoutes.js";
-app.use("/api/auth", authRoutes);
+app.get("/check", (req, res) => {
+  res.json({ status: "mehul is fat" });
+});
+app.use("/auth", authRoutes);
 
-export default app;
+module.exports = app;

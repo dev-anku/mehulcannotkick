@@ -1,27 +1,22 @@
-import dotenv from "dotenv";
-dotenv.config();
-
-import mongoose from "mongoose";
-import http from "http";
-import app from "./app.js";
-import { setupSocket } from "./socket.js";
+require("dotenv").config();
+const http = require("http");
+const mongoose = require("mongoose");
+const app = require("./app.js");
 
 const PORT = process.env.PORT || 5000;
 
-const server = http.createServer(app);
-
 (async () => {
   try {
-    await mongoose.connect(process.env.MONGODB);
-    console.log("MongoDB connected");
+    await mongoose.connect(process.env.MONGO_URI);
+    console.log("Database connected!");
 
-    setupSocket(server);
+    const server = http.createServer(app);
 
     server.listen(PORT, () => {
-      console.log(`Server running on port ${PORT}`);
+      console.log(`Server running on ${PORT}`);
     });
   } catch (err) {
-    console.error("Startup failed", err);
+    console.error("Database connection error:", err);
     process.exit(1);
   }
 })();
