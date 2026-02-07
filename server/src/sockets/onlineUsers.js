@@ -1,3 +1,4 @@
+const User = require("../models/user.js");
 const onlineUsers = new Map();
 
 function addUser(username, socketId) {
@@ -16,9 +17,15 @@ function getOnlineUsers() {
   return Array.from(onlineUsers.keys());
 }
 
+async function isUserInFight(username) {
+  const user = await User.findOne({ username });
+  return user?.status === "fighting";
+}
+
 module.exports = {
   addUser,
   removeUser,
   getSocketId,
   getOnlineUsers,
+  isUserInFight,
 };
