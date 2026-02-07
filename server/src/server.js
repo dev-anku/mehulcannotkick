@@ -2,6 +2,7 @@ require("dotenv").config();
 const http = require("http");
 const mongoose = require("mongoose");
 const app = require("./app.js");
+const initSockets = require("./sockets");
 
 const PORT = process.env.PORT || 5000;
 
@@ -11,6 +12,8 @@ const PORT = process.env.PORT || 5000;
     console.log("Database connected!");
 
     const server = http.createServer(app);
+
+    initSockets(server);
 
     server.listen(PORT, () => {
       console.log(`Server running on ${PORT}`);
