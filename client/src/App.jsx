@@ -73,12 +73,10 @@ export default function App() {
 
       s.on("fight_started", (data) => {
         setFight(data);
-        console.log(fight);
       });
 
       s.on("fight_update", (data) => {
         setFight(data);
-        console.log(fight);
       });
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
