@@ -10,6 +10,7 @@ export default function App() {
   const [error, setError] = useState("");
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socket, setSocket] = useState(null);
+  const [fight, setFight] = useState(null);
 
   async function register() {
     setLoading(true);
@@ -64,11 +65,65 @@ export default function App() {
       s.on("challenge_rejected", ({ by }) => {
         alert(`${by} rejected your challenge.`);
       });
+
+      s.on("fight_started", (data) => {
+        setFight(data);
+      });
+
+      s.on("fight_update", (data) => {
+        setFight(data);
+      });
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  if (fight) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
+        <div className="bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-800 w-96">
+          <h2 className="text-lg font-semibold mb-2">Fight in Progress</h2>
+
+          <p>Health A: {fight.healthA}%</p>
+          <p>Health B: {fight.healthB}%</p>
+          <p className="mt-2">Current Turn: Player {fight.currentTurn}</p>
+
+          <div className="mt-4 flex gap-2">
+            <button
+              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "PUNCH" })}
+              className="px-3 py-2 bg-gray-800 rounded"
+            >
+              Punch
+            </button>
+
+            <button
+              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "KICK" })}
+              className="px-3 py-2 bg-gray-800 rounded"
+            >
+              Kick
+            </button>
+
+            <button
+              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "FLEE" })}
+              className="px-3 py-2 bg-red-700 rounded"
+            >
+              Flee
+            </button>
+          </div>
+
+          <div className="mt-4 text-sm">
+            <h3 className="text-gray-400">Fight Log:</h3>
+            <ul className="mt-2 space-y-1">
+              {fight.log.map((entry, i) => (
+                <li key={i}>• {entry}</li>
+              ))}
+            </ul>
+          </div>
+        </div>
+      </div>
+    );
   }
 
   if (token) {

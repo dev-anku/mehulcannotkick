@@ -11,6 +11,7 @@ const {
   createChallenge,
   updateChallengeStatus,
 } = require("../services/challengeService.js");
+const { createFight, applyAction } = require("../services/fightService.js");
 
 function initSockets(server) {
   const io = new Server(server, {
@@ -73,16 +74,27 @@ function initSockets(server) {
       try {
         const challenge = await updateChallengeStatus(challengeId, "accepted");
 
+        const fight = await createFight(challenge.fromUser, challenge.toUser);
+
         const fromSocketId = getSocketId(challenge.fromUser);
+        const toSocketId = getSocketId(challenge.toUser);
+
+        const fightPayload = {
+          fightId: fight._id,
+          playerA: fight.playerA,
+          playerB: fight.playerB,
+          healthA: fight.healthA,
+          healthB: fight.healthB,
+          currentTurn: fight.currentTurn,
+          log: fight.log,
+        };
 
         if (fromSocketId) {
-          io.to(fromSocketId).emit("challenge_accepted", {
-            challengeId,
-            by: socket.user.username,
-          });
+          io.to(fromSocketId).emit("fight_started", fightPayload);
         }
-
-        socket.emit("challenge_accepted_confirm", { challengeId });
+        if (toSocketId) {
+          io.to(toSocketId).emit("fight_started", fightPayload);
+        }
       } catch (err) {
         socket.emit("error_message", { message: err.message });
       }
@@ -103,6 +115,34 @@ function initSockets(server) {
         socket.emit("challenge_rejected_confirm", { challengeId });
       } catch (err) {
         socket.emit("error_messsage", { message: err.message });
+      }
+    });
+
+    socket.on("fight_action", async ({ fightId, action }) => {
+      try {
+        const updatedFight = await applyAction(
+          fightId,
+          socket.user.username,
+          action,
+        );
+
+        const payload = {
+          fightId: updatedFight._id,
+          healthA: updatedFight.healthA,
+          healthB: updatedFight.healthB,
+          currentTurn: updatedFight.currentTurn,
+          state: updatedFight.state,
+          winner: updatedFight.winner,
+          log: updatedFight.log,
+        };
+
+        const socketA = getSocketId(updatedFight.playerA);
+        const socketB = getSocketId(updatedFight.playerB);
+
+        if (socketA) io.to(socketA).emit("fight_update", payload);
+        if (socketB) io.to(socketB).emit("fight_update", payload);
+      } catch (err) {
+        socket.emit("error_message", { message: err.message });
       }
     });
   });
