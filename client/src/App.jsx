@@ -38,6 +38,11 @@ export default function App() {
       const s = connectSocket(t);
       setSocket(s);
 
+      s.on("error_message", ({ message }) => {
+        console.error("Server error:", message);
+        alert(message);
+      });
+
       s.on("connected", (data) => {
         setOnlineUsers(data.onlineUsers);
       });
@@ -68,10 +73,12 @@ export default function App() {
 
       s.on("fight_started", (data) => {
         setFight(data);
+        console.log(fight);
       });
 
       s.on("fight_update", (data) => {
         setFight(data);
+        console.log(fight);
       });
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
