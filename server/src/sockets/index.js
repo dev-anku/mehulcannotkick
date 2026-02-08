@@ -114,7 +114,7 @@ function initSockets(server) {
         }
         socket.emit("challenge_rejected_confirm", { challengeId });
       } catch (err) {
-        socket.emit("error_messsage", { message: err.message });
+        socket.emit("error_message", { message: err.message });
       }
     });
 

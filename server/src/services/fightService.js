@@ -71,7 +71,7 @@ async function applyAction(fightId, actingPlayer, action) {
 
     await User.updateMany(
       {
-        username: { $in: [playerA, playerB] },
+        username: { $in: [fight.playerA, fight.playerB] },
       },
       { status: "idle" },
     );
@@ -83,10 +83,10 @@ async function applyAction(fightId, actingPlayer, action) {
 
   if (isA) {
     fight.healthB -= damage;
-    fight.healthA -= selfDamange;
+    fight.healthA -= selfDamage;
   } else {
     fight.healthA -= damage;
-    fight.healthB -= selfDamange;
+    fight.healthB -= selfDamage;
   }
 
   fight.log.push(logEntry);
@@ -100,7 +100,7 @@ async function applyAction(fightId, actingPlayer, action) {
 
     await User.updateMany(
       {
-        username: { $in: [playerA, playerB] },
+        username: { $in: [fight.playerA, fight.playerB] },
       },
       { status: "idle" },
     );
