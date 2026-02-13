@@ -1,4 +1,5 @@
 const Challenge = require("../models/challenge.js");
+const Fight = require("../models/fight.js");
 const User = require("../models/user.js");
 const challengeCooldown = new Map();
 
