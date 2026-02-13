@@ -9,7 +9,7 @@ async function createFight(playerA, playerB) {
   playerA = playerA.toLowerCase();
   playerB = playerB.toLowerCase();
 
-  const firstTurn = Math.random() < 0.5 ? "A" : "B";
+  const firstTurn = Math.random() < 0.5 ? playerA : playerB;
 
   const fight = await Fight.create({
     playerA,
@@ -39,10 +39,7 @@ async function applyAction(fightId, actingPlayer, action) {
   if (fight.state !== "active") throw new Error("Fight is not active");
 
   const isA = actingPlayer === fight.playerA;
-  const expectedTurn =
-    fight.currentTurn === "A" ? fight.playerA : fight.playerB;
-
-  if (actingPlayer !== expectedTurn) {
+  if (actingPlayer !== fight.currentTurn) {
     throw new Error("Not your turn");
   }
 
@@ -108,7 +105,8 @@ async function applyAction(fightId, actingPlayer, action) {
     return fight;
   }
 
-  fight.currentTurn = fight.currentTurn === "A" ? "B" : "A";
+  fight.currentTurn =
+    fight.currentTurn === fight.playerA ? fight.playerB : fight.playerA;
   await fight.save();
 
   return fight;

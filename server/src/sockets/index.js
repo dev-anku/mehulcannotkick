@@ -6,6 +6,8 @@ const {
   getOnlineUsers,
   getSocketId,
 } = require("./onlineUsers.js");
+const User = require("../models/user.js");
+const Fight = require("../models/fight.js");
 const Challenge = require("../models/challenge.js");
 const {
   createChallenge,
@@ -37,9 +39,53 @@ function initSockets(server) {
 
     socket.broadcast.emit("online_users", getOnlineUsers());
 
-    socket.on("disconnect", () => {
+    socket.on("disconnect", async () => {
       console.log(`Socket disconnected: ${username}`);
       removeUser(username);
+
+      const activeFight = await Fight.findOne({
+        state: "active",
+        $or: [{ playerA: username }, { playerB: username }],
+      });
+
+      if (activeFight) {
+        activeFight.state = "finished";
+        activeFight.winner =
+          activeFight.playerA === username
+            ? activeFight.playerB
+            : activeFight.playerA;
+        activeFight.log.push(
+          `${username} disconnected. ${activeFight.winner} wins by default.`,
+        );
+
+        await activeFight.save();
+
+        await User.updateMany(
+          {
+            username: { $in: [activeFight.playerA, activeFight.playerB] },
+          },
+          { status: "idle" },
+        );
+
+        const remainingPlayer =
+          activeFight.playerA === username
+            ? activeFight.playerB
+            : activeFight.playerA;
+        const remainingSocketId = getSocketId(remainingPlayer);
+
+        if (remainingSocketId) {
+          io.to(remainingSocketId).emit("fight_update", {
+            fightId: activeFight._id,
+            healthA: activeFight.healthA,
+            healthB: activeFight.healthB,
+            currentTurn: activeFight.currentTurn,
+            state: "finished",
+            winner: activeFight.winner,
+            log: activeFight.log,
+          });
+        }
+      }
+
       socket.broadcast.emit("online_users", getOnlineUsers());
     });
 
@@ -85,6 +131,7 @@ function initSockets(server) {
           playerB: fight.playerB,
           healthA: fight.healthA,
           healthB: fight.healthB,
+          state: fight.state,
           currentTurn: fight.currentTurn,
           log: fight.log,
         };
@@ -128,6 +175,8 @@ function initSockets(server) {
 
         const payload = {
           fightId: updatedFight._id,
+          playerA: updatedFight.playerA,
+          playerB: updatedFight.playerB,
           healthA: updatedFight.healthA,
           healthB: updatedFight.healthB,
           currentTurn: updatedFight.currentTurn,

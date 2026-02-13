@@ -2,6 +2,11 @@ import { useState } from "react";
 import api from "./api/axios";
 import { connectSocket } from "./api/socket";
 
+function isMyTurn(fight, username) {
+  if (!fight || fight.state !== "active") return false;
+  return fight.currentTurn === username.toLowerCase();
+}
+
 export default function App() {
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -85,34 +90,126 @@ export default function App() {
     }
   }
 
+  // ===== WIN SCREEN =====
+  if (fight && fight.state === "finished") {
+    const didIWin = fight.winner === username;
+    const opponent =
+      fight.playerA === username ? fight.playerB : fight.playerA;
+
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
+        <div className="bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-800 w-96">
+          <h2 className="text-lg font-semibold mb-2">
+            {didIWin ? "You Won 🎉" : "You Lost 💀"}
+          </h2>
+
+          <p className="text-sm text-gray-400 mb-3">
+            Winner:{" "}
+            <span className="text-green-400">{fight.winner}</span>
+          </p>
+
+          <h3 className="text-sm text-gray-400">Final Fight Log:</h3>
+          <ul className="mt-2 space-y-1 text-sm">
+            {fight.log.map((entry, i) => (
+              <li key={i}>• {entry}</li>
+            ))}
+          </ul>
+
+          <button
+            className="mt-4 w-full px-3 py-2 bg-green-600 text-black font-medium rounded"
+            onClick={() => {
+              setFight(null);
+              socket.emit("send_challenge", { toUser: opponent });
+            }}
+          >
+            Rematch
+          </button>
+
+          <button
+            className="mt-4 w-full px-3 py-2 bg-green-600 text-black font-medium rounded"
+            onClick={() => setFight(null)}
+          >
+            Back to Lobby
+          </button>
+        </div>
+      </div >
+    );
+  }
+
+  // ===== ACTIVE FIGHT UI =====
   if (fight) {
+    const myTurn = isMyTurn(fight, username);
+    const opponent =
+      fight.playerA === username ? fight.playerB : fight.playerA;
+
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
         <div className="bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-800 w-96">
           <h2 className="text-lg font-semibold mb-2">Fight in Progress</h2>
 
-          <p>Health A: {fight.healthA}%</p>
-          <p>Health B: {fight.healthB}%</p>
-          <p className="mt-2">Current Turn: Player {fight.currentTurn}</p>
+          <div className="mt-2 text-sm">
+            <p>
+              <span className="text-green-400">You:</span>{" "}
+              {fight.playerA === username
+                ? fight.healthA
+                : fight.healthB}
+              %
+            </p>
+
+            <p>
+              <span className="text-red-400">
+                Opponent ({opponent}):
+              </span>{" "}
+              {fight.playerA === username
+                ? fight.healthB
+                : fight.healthA}
+              %
+            </p>
+          </div>
+
+          <p className="mt-3 text-sm">
+            Turn:{" "}
+            <span className={myTurn ? "text-green-400" : "text-gray-400"}>
+              {myTurn ? "Your turn" : `${opponent}'s turn`}
+            </span>
+          </p>
 
           <div className="mt-4 flex gap-2">
             <button
-              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "PUNCH" })}
-              className="px-3 py-2 bg-gray-800 rounded"
+              disabled={!myTurn || fight.state !== "active"}
+              onClick={() =>
+                socket.emit("fight_action", {
+                  fightId: fight.fightId || fight._id,
+                  action: "PUNCH",
+                })
+              }
+              className="px-3 py-2 bg-gray-800 rounded disabled:opacity-50"
             >
               Punch
             </button>
 
             <button
-              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "KICK" })}
-              className="px-3 py-2 bg-gray-800 rounded"
+              disabled={!myTurn || fight.state !== "active"}
+              onClick={() =>
+                socket.emit("fight_action", {
+                  fightId: fight.fightId || fight._id,
+                  action: "KICK",
+                })
+              }
+              className="px-3 py-2 bg-gray-800 rounded disabled:opacity-50"
             >
               Kick
             </button>
 
             <button
-              onClick={() => socket.emit("fight_action", { fightId: fight.fightId, action: "FLEE" })}
-              className="px-3 py-2 bg-red-700 rounded"
+              disabled={!myTurn || fight.state !== "active"}
+              onClick={() =>
+                socket.emit("fight_action", {
+                  fightId: fight.fightId || fight._id,
+                  action: "FLEE",
+                })
+              }
+              className="px-3 py-2 bg-red-700 rounded disabled:opacity-50"
             >
               Flee
             </button>
@@ -131,13 +228,16 @@ export default function App() {
     );
   }
 
+  // ===== LOBBY (LOGGED IN, NO FIGHT) =====
   if (token) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
         <div className="bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-800 w-96">
           <h1 className="text-xl font-semibold mb-2">
-            Logged in as: <span className="text-green-400">{username}</span>
+            Logged in as:{" "}
+            <span className="text-green-400">{username}</span>
           </h1>
+
           <h3 className="mt-4 text-sm text-gray-400">Online Users:</h3>
           <ul className="mt-2 text-sm">
             {onlineUsers.map((u) => (
@@ -146,13 +246,16 @@ export default function App() {
               </li>
             ))}
           </ul>
+
           <div className="mt-6">
             <input
               className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
               placeholder="Challenge username..."
               onKeyDown={(e) => {
                 if (e.key === "Enter") {
-                  socket.emit("send_challenge", { toUser: e.target.value });
+                  socket.emit("send_challenge", {
+                    toUser: e.target.value,
+                  });
                   e.target.value = "";
                 }
               }}
@@ -167,6 +270,7 @@ export default function App() {
     );
   }
 
+  // ===== AUTH SCREEN =====
   return (
     <div className="min-h-screen flex items-center justify-center bg-gray-950 text-gray-100">
       <div className="bg-gray-900 p-6 rounded-xl shadow-lg border border-gray-800 w-96">

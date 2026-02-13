@@ -10,7 +10,6 @@ const FightSchema = new mongoose.Schema(
 
     currentTurn: {
       type: String,
-      enum: ["A", "B"],
       required: true,
     },
 
