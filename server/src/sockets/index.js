@@ -30,7 +30,7 @@ function initSockets(server) {
 
     console.log(`Socket connected: ${username} (${socket.id})`);
 
-    addUser(username, socket.id);
+    addUser(username, socket.id, io);
 
     socket.emit("connected", {
       username,
@@ -76,6 +76,8 @@ function initSockets(server) {
         if (remainingSocketId) {
           io.to(remainingSocketId).emit("fight_update", {
             fightId: activeFight._id,
+            playerA: activeFight.playerA,
+            playerB: activeFight.playerB,
             healthA: activeFight.healthA,
             healthB: activeFight.healthB,
             currentTurn: activeFight.currentTurn,
@@ -133,6 +135,7 @@ function initSockets(server) {
           healthB: fight.healthB,
           state: fight.state,
           currentTurn: fight.currentTurn,
+          winner: fight.winner,
           log: fight.log,
         };
 
@@ -193,6 +196,12 @@ function initSockets(server) {
       } catch (err) {
         socket.emit("error_message", { message: err.message });
       }
+    });
+
+    socket.on("force_disconnect", () => {
+      alert("You logged in from another session.");
+      socket.disconnect();
+      location.reload();
     });
   });
 

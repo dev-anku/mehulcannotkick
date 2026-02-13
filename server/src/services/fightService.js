@@ -36,12 +36,13 @@ async function getFight(fightId) {
 async function applyAction(fightId, actingPlayer, action) {
   const fight = await getFight(fightId);
   if (!fight) throw new Error("Fight not found");
+  if (!fight.playerA || !fight.playerB) throw new Error("Corrupted Fight!");
   if (fight.state !== "active") throw new Error("Fight is not active");
-
-  const isA = actingPlayer === fight.playerA;
   if (actingPlayer !== fight.currentTurn) {
     throw new Error("Not your turn");
   }
+
+  const isA = actingPlayer === fight.playerA;
 
   let logEntry = "";
   let damage = 0;

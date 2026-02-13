@@ -17,8 +17,14 @@ const ChallengeSchema = new mongoose.Schema(
       enum: ["pending", "accepted", "rejected", "expired"],
       default: "pending",
     },
+    expiresAt: {
+      type: Date,
+      default: () => new Date(Date.now() + 2 * 60 * 1000),
+    },
   },
   { timestamps: true },
 );
+
+ChallengeSchema.index({ expiresAt: 1 }, { expireAfterSeconds: 0 });
 
 module.exports = mongoose.model("Challenge", ChallengeSchema);
