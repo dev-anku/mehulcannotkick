@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import api from "./api/axios";
 import { connectSocket } from "./api/socket";
 
@@ -16,6 +16,72 @@ export default function App() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socket, setSocket] = useState(null);
   const [fight, setFight] = useState(null);
+
+  function setupSocketListeners(s) {
+    s.on("error_message", ({ message }) => {
+      console.error("Server error:", message);
+      alert(message);
+    });
+
+    s.on("connected", (data) => {
+      setOnlineUsers(data.onlineUsers);
+    });
+
+    s.on("online_users", (users) => {
+      setOnlineUsers(users);
+    });
+
+    s.on("receive_challenge", ({ challengeId, fromUser }) => {
+      const accept = window.confirm(
+        `${fromUser} has challenged you! Accept?`
+      );
+
+      if (accept) {
+        s.emit("accept_challenge", { challengeId });
+      } else {
+        s.emit("reject_challenge", { challengeId });
+      }
+    });
+
+    s.on("challenge_accepted", ({ by }) => {
+      alert(`${by} accepted your challenge!`);
+    });
+
+    s.on("challenge_rejected", ({ by }) => {
+      alert(`${by} rejected your challenge.`);
+    });
+
+    s.on("fight_started", (data) => {
+      setFight(data);
+    });
+
+    s.on("fight_update", (data) => {
+      setFight(data);
+    });
+
+    s.on("force_disconnect", () => {
+      alert("You logged in from another session.");
+      s.disconnect();
+      location.reload();
+    });
+  }
+
+  useEffect(() => {
+    const storedToken = localStorage.getItem("token");
+    const storedUsername = localStorage.getItem("username");
+
+    if (!storedToken || !storedUsername) {
+      return;
+    }
+
+    setToken(storedToken);
+    setUsername(storedUsername);
+
+    const s = connectSocket(storedToken);
+    setSocket(s);
+
+    setupSocketListeners(s);
+  }, []);
 
   async function register() {
     setLoading(true);
@@ -37,57 +103,40 @@ export default function App() {
 
     try {
       const res = await api.post("/auth/login", { username, password });
-      const t = res.data.token;
-      setToken(t);
+      const token = res.data.token;
+      const uname = res.data.username;
 
-      const s = connectSocket(t);
+      localStorage.setItem("token", token);
+      localStorage.setItem("username", uname);
+
+      setToken(token);
+      setUsername(uname);
+
+      const s = connectSocket(token);
       setSocket(s);
 
-      s.on("error_message", ({ message }) => {
-        console.error("Server error:", message);
-        alert(message);
-      });
-
-      s.on("connected", (data) => {
-        setOnlineUsers(data.onlineUsers);
-      });
-
-      s.on("online_users", (users) => {
-        setOnlineUsers(users);
-      });
-
-      s.on("receive_challenge", ({ challengeId, fromUser }) => {
-        const accept = window.confirm(
-          `${fromUser} has challenged you! Accept?`
-        );
-
-        if (accept) {
-          s.emit("accept_challenge", { challengeId });
-        } else {
-          s.emit("reject_challenge", { challengeId });
-        }
-      });
-
-      s.on("challenge_accepted", ({ by }) => {
-        alert(`${by} accepted your challenge!`);
-      });
-
-      s.on("challenge_rejected", ({ by }) => {
-        alert(`${by} rejected your challenge.`);
-      });
-
-      s.on("fight_started", (data) => {
-        setFight(data);
-      });
-
-      s.on("fight_update", (data) => {
-        setFight(data);
-      });
+      setupSocketListeners(s);
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
     } finally {
       setLoading(false);
     }
+  }
+
+  function logout() {
+    localStorage.removeItem("token");
+    localStorage.removeItem("username");
+
+    if (socket) {
+      socket.disconnect();
+    }
+
+    setToken(null);
+    setSocket(null);
+    setFight(null);
+    setOnlineUsers([]);
+
+    location.reload();
   }
 
   // ===== WIN SCREEN =====
@@ -265,6 +314,13 @@ export default function App() {
           <div className="mt-4 text-sm text-yellow-400">
             (Press Enter to send challenge)
           </div>
+
+          <button
+            onClick={logout}
+            className="mt-2 w-full px-3 py-2 bg-red-600 text-black rounded"
+          >
+            Logout
+          </button>
         </div>
       </div>
     );
