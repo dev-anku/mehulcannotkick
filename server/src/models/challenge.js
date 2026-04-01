@@ -12,6 +12,11 @@ const ChallengeSchema = new mongoose.Schema(
       required: true,
       lowercase: true,
     },
+    betAmount: {
+      type: Number,
+      default: 0,
+      min: 0,
+    },
     status: {
       type: String,
       enum: ["pending", "accepted", "rejected", "expired"],

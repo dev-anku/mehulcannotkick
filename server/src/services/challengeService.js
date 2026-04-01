@@ -12,17 +12,30 @@ function checkCooldown(username) {
   challengeCooldown.set(username, Date.now());
 }
 
-async function createChallenge(fromUser, toUser) {
+async function createChallenge(fromUser, toUser, betAmount = 0) {
   fromUser = fromUser.toLowerCase();
   toUser = toUser.toLowerCase();
+
+  if (betAmount < 0) {
+    throw new Error("Invalid bet amount");
+  }
 
   if (fromUser == toUser) {
     throw new Error("You cannot challenge yourself");
   }
 
+  const from = await User.findOne({ username: fromUser });
   const target = await User.findOne({ username: toUser });
-  if (!target) {
-    throw new Error("Target user does not exist");
+  if (!from || !target) {
+    throw new Error("User does not exist");
+  }
+
+  if (from.coins < betAmount) {
+    throw new Error("You don't have enough coins");
+  }
+
+  if (target.coins < betAmount) {
+    throw new Error("Opponent doesn't have enough coins");
   }
 
   checkCooldown(fromUser);
@@ -54,7 +67,7 @@ async function createChallenge(fromUser, toUser) {
     throw new Error("You already have a pending challenge to this user");
   }
 
-  const challenge = await Challenge.create({ fromUser, toUser });
+  const challenge = await Challenge.create({ fromUser, toUser, betAmount });
   return challenge;
 }
 

@@ -16,6 +16,24 @@ export default function App() {
   const [onlineUsers, setOnlineUsers] = useState([]);
   const [socket, setSocket] = useState(null);
   const [fight, setFight] = useState(null);
+  const [targetUsername, setTargetUsername] = useState("");
+  const [betAmount, setBetAmount] = useState("");
+  const [claimStatus, setClaimStatus] = useState({
+    canClaim: false,
+    remainingTime: 0,
+  });
+
+  function sendChallenge() {
+    if (!targetUsername.trim()) return;
+
+    socket.emit("send_challenge", {
+      toUser: targetUsername.trim(),
+      betAmount: Number(betAmount) || 0,
+    });
+
+    setTargetUsername("");
+    setBetAmount("");
+  }
 
   function setupSocketListeners(s) {
     s.on("error_message", ({ message }) => {
@@ -31,9 +49,9 @@ export default function App() {
       setOnlineUsers(users);
     });
 
-    s.on("receive_challenge", ({ challengeId, fromUser }) => {
+    s.on("receive_challenge", ({ challengeId, fromUser, betAmount }) => {
       const accept = window.confirm(
-        `${fromUser} has challenged you! Accept?`
+        `${fromUser} has challenged you for ${betAmount} coins! Accept?`
       );
 
       if (accept) {
@@ -116,6 +134,8 @@ export default function App() {
       setSocket(s);
 
       setupSocketListeners(s);
+
+      await fetchClaimStatus(token);
     } catch (err) {
       setError(err.response?.data?.error || "Login failed");
     } finally {
@@ -137,6 +157,34 @@ export default function App() {
     setOnlineUsers([]);
 
     location.reload();
+  }
+
+  async function fetchClaimStatus() {
+    const res = await api.get("/claim/status");
+    setClaimStatus(res.data);
+  }
+
+  async function claimCoins() {
+    try {
+      const res = await api.post("/claim");
+      alert(`+100 coins! Total: ${res.data.coins}`);
+
+      fetchClaimStatus();
+    } catch (err) {
+      const remaining = err.response?.data?.remainingTime;
+
+      if (remaining) {
+        alert(`Available in ${formatTime(remaining)}`);
+      }
+    }
+  }
+
+  function formatTime(ms) {
+    const totalSeconds = Math.floor(ms / 1000);
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+
+    return `${hours}h ${minutes}m`;
   }
 
   // ===== WIN SCREEN =====
@@ -168,7 +216,7 @@ export default function App() {
             className="mt-4 w-full px-3 py-2 bg-green-600 text-black font-medium rounded"
             onClick={() => {
               setFight(null);
-              socket.emit("send_challenge", { toUser: opponent });
+              socket.emit("send_challenge", { toUser: opponent, betAmount: fight.betAmount || 0 });
             }}
           >
             Rematch
@@ -221,6 +269,10 @@ export default function App() {
             <span className={myTurn ? "text-green-400" : "text-gray-400"}>
               {myTurn ? "Your turn" : `${opponent}'s turn`}
             </span>
+          </p>
+
+          <p className="text-yellow-400">
+            Bet: {fight.betAmount} coins (Winner takes all)
           </p>
 
           <div className="mt-4 flex gap-2">
@@ -296,19 +348,35 @@ export default function App() {
             ))}
           </ul>
 
-          <div className="mt-6">
+          <div className="mt-6 space-y-3">
             <input
-              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+              type="text"
+              value={targetUsername}
+              onChange={(e) => setTargetUsername(e.target.value)}
               placeholder="Challenge username..."
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
               onKeyDown={(e) => {
-                if (e.key === "Enter") {
-                  socket.emit("send_challenge", {
-                    toUser: e.target.value,
-                  });
-                  e.target.value = "";
-                }
+                if (e.key === "Enter") sendChallenge();
               }}
             />
+
+            <input
+              type="number"
+              value={betAmount}
+              onChange={(e) => setBetAmount(e.target.value)}
+              placeholder="Bet amount"
+              className="w-full px-3 py-2 bg-gray-800 border border-gray-700 rounded"
+              onKeyDown={(e) => {
+                if (e.key === "Enter") sendChallenge();
+              }}
+            />
+
+            <button
+              onClick={sendChallenge}
+              className="w-full px-3 py-2 bg-green-600 text-black font-medium rounded hover:bg-green-500"
+            >
+              Send Challenge
+            </button>
           </div>
 
           <div className="mt-4 text-sm text-yellow-400">
@@ -321,6 +389,21 @@ export default function App() {
           >
             Logout
           </button>
+
+          <div className="mt-4">
+            {claimStatus.canClaim ? (
+              <button
+                onClick={claimCoins}
+                className="w-full px-3 py-2 bg-green-600 text-black rounded"
+              >
+                Claim Available (+100 coins)
+              </button>
+            ) : (
+              <div className="text-sm text-gray-400 text-center">
+                Available in {formatTime(claimStatus.remainingTime)}
+              </div>
+            )}
+          </div>
         </div>
       </div>
     );

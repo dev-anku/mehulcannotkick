@@ -8,6 +8,11 @@ const FightSchema = new mongoose.Schema(
     healthA: { type: Number, default: 100 },
     healthB: { type: Number, default: 100 },
 
+    betAmount: {
+      type: Number,
+      default: 0,
+    },
+
     currentTurn: {
       type: String,
       required: true,

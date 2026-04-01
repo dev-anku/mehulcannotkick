@@ -13,6 +13,11 @@ const UserSchema = new mongoose.Schema(
     },
     password: { type: String, required: true },
     status: { type: String, enum: ["idle", "fighting"], default: "idle" },
+    coins: { type: Number, default: 100, min: 0 },
+    lastClaim: {
+      type: Date,
+      default: null,
+    },
     currentFightId: { type: mongoose.Schema.Types.ObjectId, default: null },
   },
   { timestamps: true },

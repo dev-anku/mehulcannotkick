@@ -2,7 +2,10 @@ require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
 
+const auth = require("./middleware/auth.js");
+
 const authRoutes = require("./routes/authRoutes.js");
+const claimRoutes = require("./routes/claimRoutes.js");
 
 const app = express();
 
@@ -17,5 +20,6 @@ app.get("/check", (req, res) => {
   res.json({ status: "mehul is fat" });
 });
 app.use("/auth", authRoutes);
+app.use("/claim", auth, claimRoutes);
 
 module.exports = app;

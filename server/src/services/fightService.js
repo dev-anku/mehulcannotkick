@@ -5,7 +5,7 @@ function randomBetween(min, max) {
   return Math.floor(Math.random() * (max - min + 1)) + min;
 }
 
-async function createFight(playerA, playerB) {
+async function createFight(playerA, playerB, betAmount = 0) {
   playerA = playerA.toLowerCase();
   playerB = playerB.toLowerCase();
 
@@ -14,6 +14,7 @@ async function createFight(playerA, playerB) {
   const fight = await Fight.create({
     playerA,
     playerB,
+    betAmount,
     currentTurn: firstTurn,
     state: "active",
     log: [`Fight started. Player ${firstTurn} goes first.`],
@@ -67,6 +68,15 @@ async function applyAction(fightId, actingPlayer, action) {
     fight.log.push(`${actingPlayer} fled the fight.`);
     await fight.save();
 
+    if (fight.betAmount > 0 && fight.winner) {
+      const total = fight.betAmount * 2;
+
+      await User.updateOne(
+        { username: fight.winner },
+        { $inc: { coins: total } },
+      );
+    }
+
     await User.updateMany(
       {
         username: { $in: [fight.playerA, fight.playerB] },
@@ -95,6 +105,15 @@ async function applyAction(fightId, actingPlayer, action) {
     fight.log.push(`${fight.winner} wins the fight.`);
 
     await fight.save();
+
+    if (fight.betAmount > 0 && fight.winner) {
+      const total = fight.betAmount * 2;
+
+      await User.updateOne(
+        { username: fight.winner },
+        { $inc: { coins: total } },
+      );
+    }
 
     await User.updateMany(
       {

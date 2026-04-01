@@ -25,8 +25,9 @@ function initSockets(server) {
 
   io.use(socketAuth);
 
-  io.on("connection", (socket) => {
+  io.on("connection", async (socket) => {
     const username = socket.user.username;
+    // const userDoc = await User.findOne({ username });
 
     console.log(`Socket connected: ${username} (${socket.id})`);
 
@@ -36,6 +37,10 @@ function initSockets(server) {
       username,
       onlineUsers: getOnlineUsers(),
     });
+
+    // socket.emit("coins_update", {
+    //   coins: userDoc.coins,
+    // });
 
     socket.broadcast.emit("online_users", getOnlineUsers());
 
@@ -59,6 +64,15 @@ function initSockets(server) {
         );
 
         await activeFight.save();
+
+        if (activeFight.betAmount > 0 && activeFight.winner) {
+          const total = activeFight.betAmount * 2;
+
+          await User.updateOne(
+            { username: activeFight.winner },
+            { $inc: { coins: total } },
+          );
+        }
 
         await User.updateMany(
           {
@@ -91,10 +105,14 @@ function initSockets(server) {
       socket.broadcast.emit("online_users", getOnlineUsers());
     });
 
-    socket.on("send_challenge", async ({ toUser }) => {
+    socket.on("send_challenge", async ({ toUser, betAmount }) => {
       try {
         const fromUser = socket.user.username;
-        const challenge = await createChallenge(fromUser, toUser);
+        const challenge = await createChallenge(
+          fromUser,
+          toUser,
+          betAmount || 0,
+        );
 
         const targetSocketId = getSocketId(toUser.toLowerCase());
         if (!targetSocketId) {
@@ -107,11 +125,13 @@ function initSockets(server) {
         io.to(targetSocketId).emit("receive_challenge", {
           challengeId: challenge._id,
           fromUser,
+          betAmount: challenge.betAmount,
         });
 
         socket.emit("challenge_sent", {
           challengeId: challenge._id,
           toUser,
+          betAmount: challenge.betAmount,
         });
       } catch (err) {
         socket.emit("error_message", { message: err.message });
@@ -122,7 +142,27 @@ function initSockets(server) {
       try {
         const challenge = await updateChallengeStatus(challengeId, "accepted");
 
-        const fight = await createFight(challenge.fromUser, challenge.toUser);
+        const bet = challenge.betAmount;
+
+        const res1 = await User.updateOne(
+          { username: challenge.fromUser, coins: { $gte: bet } },
+          { $inc: { coins: -bet } },
+        );
+
+        const res2 = await User.updateOne(
+          { username: challenge.toUser, coins: { $gte: bet } },
+          { $inc: { coins: -bet } },
+        );
+
+        if (res1.modifiedCount === 0 || res2.modifiedCount === 0) {
+          throw new Error("Insufficient balance at accept time");
+        }
+
+        const fight = await createFight(
+          challenge.fromUser,
+          challenge.toUser,
+          challenge.betAmount,
+        );
 
         const fromSocketId = getSocketId(challenge.fromUser);
         const toSocketId = getSocketId(challenge.toUser);
@@ -133,6 +173,7 @@ function initSockets(server) {
           playerB: fight.playerB,
           healthA: fight.healthA,
           healthB: fight.healthB,
+          betAmount: fight.betAmount,
           state: fight.state,
           currentTurn: fight.currentTurn,
           winner: fight.winner,
@@ -182,6 +223,7 @@ function initSockets(server) {
           playerB: updatedFight.playerB,
           healthA: updatedFight.healthA,
           healthB: updatedFight.healthB,
+          betAmount: updatedFight.betAmount,
           currentTurn: updatedFight.currentTurn,
           state: updatedFight.state,
           winner: updatedFight.winner,
